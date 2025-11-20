@@ -81,6 +81,16 @@ class EventListResource(Resource):
         if not data or not data.get('title') or not data.get('event_date'):
             return {'message': '标题和日期不能为空'}, 400
         
+        # 验证必填字段：背景图片、地点、部门
+        if not data.get('background_image'):
+            return {'message': '活动海报（背景图片）不能为空，请上传图片'}, 400
+        
+        if not data.get('location'):
+            return {'message': '活动地点不能为空'}, 400
+        
+        if not data.get('organizer_department'):
+            return {'message': '举办部门不能为空'}, 400
+        
         try:
             # 解析日期
             event_date = datetime.strptime(data['event_date'], '%Y-%m-%d').date()
@@ -105,6 +115,9 @@ class EventListResource(Resource):
                 background_image=data.get('background_image'),
                 priority=data.get('priority', 'medium'),
                 status=data.get('status', 'pending'),
+                organizer_department=data.get('organizer_department'),  # 新增
+                expected_participants=data.get('expected_participants'),  # 新增
+                location=data.get('location'),  # 新增
                 created_by=current_user_id
             )
             
@@ -180,6 +193,16 @@ class EventDetailResource(Resource):
             
             if 'status' in data and data['status'] in ['pending', 'in_progress', 'completed', 'cancelled']:
                 event.status = data['status']
+            
+            # 新增字段更新
+            if 'organizer_department' in data:
+                event.organizer_department = data['organizer_department']
+            
+            if 'expected_participants' in data:
+                event.expected_participants = data['expected_participants']
+            
+            if 'location' in data:
+                event.location = data['location']
             
             # 更新参与人员
             if 'member_ids' in data:
@@ -306,4 +329,30 @@ class ImageUploadResource(Resource):
         except Exception as e:
             current_app.logger.error(f"上传图片时出错: {str(e)}")
             return {'message': f'上传失败: {str(e)}'}, 500
+
+
+class UpcomingEventsResource(Resource):
+    """获取近期活动（用于首页轮播）"""
+    
+    @jwt_required(optional=True)
+    def get(self):
+        """获取当天及未来一周内的活动"""
+        from datetime import timedelta
+        
+        today = date.today()
+        next_week = today + timedelta(days=7)
+        
+        # 查询当天及未来7天的活动
+        events = Event.query.filter(
+            Event.event_date >= today,
+            Event.event_date <= next_week,
+            Event.status != 'cancelled'  # 排除已取消的活动
+        ).order_by(Event.event_date.asc(), Event.start_time.asc()).all()
+        
+        return {
+            'events': [event.to_dict() for event in events],
+            'count': len(events),
+            'start_date': today.isoformat(),
+            'end_date': next_week.isoformat()
+        }, 200
 

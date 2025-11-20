@@ -3,7 +3,7 @@
     <header class="calendar-header">
       <div class="header-content">
         <h1 class="logo" @click="goToHome">
-          <el-icon><Calendar /></el-icon>
+          <img src="/qd-logo.png" alt="QD Logo" class="logo-image" />
           QD日历
         </h1>
         <div class="header-actions">
@@ -233,11 +233,13 @@
       width="700px"
     >
       <div v-if="selectedEvent" class="event-detail">
-        <div
-          v-if="selectedEvent.background_image"
-          class="event-image"
-          :style="{ backgroundImage: `url(${selectedEvent.background_image})` }"
-        ></div>
+        <div v-if="selectedEvent.background_image" class="event-image">
+          <img 
+            :src="getFullImageUrl(selectedEvent.background_image)" 
+            :alt="selectedEvent.title"
+            @error="handleImageError"
+          />
+        </div>
         
         <div class="event-info">
           <h2>{{ selectedEvent.title }}</h2>
@@ -266,6 +268,21 @@
             </el-tag>
           </div>
           
+          <div class="info-row" v-if="selectedEvent.location">
+            <el-icon><Location /></el-icon>
+            <span>地点: {{ selectedEvent.location }}</span>
+          </div>
+          
+          <div class="info-row" v-if="selectedEvent.organizer_department">
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>举办部门: {{ selectedEvent.organizer_department }}</span>
+          </div>
+          
+          <div class="info-row" v-if="selectedEvent.expected_participants">
+            <el-icon><User /></el-icon>
+            <span>预计人数: {{ selectedEvent.expected_participants }} 人</span>
+          </div>
+          
           <div class="info-row" v-if="selectedEvent.creator_name">
             <el-icon><User /></el-icon>
             <span>创建者: {{ selectedEvent.creator_name }}</span>
@@ -291,7 +308,8 @@ import { getEvents } from '@/api/events'
 import dayjs from 'dayjs'
 import {
   Calendar, Setting, ArrowDown, ArrowLeft, ArrowRight,
-  Clock, Flag, Document, User, DataAnalysis, UserFilled
+  Clock, Flag, Document, User, DataAnalysis, UserFilled,
+  Location, OfficeBuilding
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -493,6 +511,21 @@ function getDayBackgroundImage(day) {
   return sortedEvents[0].background_image
 }
 
+// 获取图片完整URL
+function getFullImageUrl(url) {
+  if (!url) return ''
+  // 如果是在线URL（http或https开头），直接返回
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  // 如果是相对路径，加上后端地址
+  if (url.startsWith('/')) {
+    return `http://localhost:5002${url}`
+  }
+  // 其他情况（如 uploads/xxx.jpg），也加上后端地址
+  return `http://localhost:5002/${url}`
+}
+
 // 生成背景样式
 function getDayBackgroundStyle(day) {
   const bgImage = getDayBackgroundImage(day)
@@ -501,7 +534,7 @@ function getDayBackgroundStyle(day) {
   }
   
   return {
-    backgroundImage: `url(${bgImage})`,
+    backgroundImage: `url(${getFullImageUrl(bgImage)})`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat'
@@ -530,6 +563,12 @@ function handleMouseLeave(event) {
     return // 如果移动到悬浮列表上，不隐藏
   }
   hoveredDay.value = null
+}
+
+// 图片加载错误处理
+function handleImageError(event) {
+  console.error('图片加载失败:', event.target.src)
+  event.target.style.display = 'none'
 }
 
 function goToHome() {
@@ -595,6 +634,12 @@ onMounted(() => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   cursor: pointer;
+}
+
+.logo-image {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
 }
 
 .header-actions {
@@ -1060,10 +1105,16 @@ onMounted(() => {
 .event-image {
   width: 100%;
   height: 200px;
-  background-size: cover;
-  background-position: center;
   border-radius: 10px;
   margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.event-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .event-info h2 {

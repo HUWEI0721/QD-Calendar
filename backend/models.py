@@ -97,6 +97,12 @@ class Event(db.Model):
     background_image = db.Column(db.String(500), nullable=True)  # 背景图片 URL
     priority = db.Column(db.Enum('low', 'medium', 'high'), default='medium')
     status = db.Column(db.Enum('pending', 'in_progress', 'completed', 'cancelled'), default='pending')
+    
+    # 新增字段
+    organizer_department = db.Column(db.String(100), nullable=True)  # 举办部门
+    expected_participants = db.Column(db.Integer, nullable=True)  # 预计参与人数
+    location = db.Column(db.String(200), nullable=True)  # 活动地点
+    
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -116,6 +122,9 @@ class Event(db.Model):
             'background_image': self.background_image,
             'priority': self.priority,
             'status': self.status,
+            'organizer_department': self.organizer_department,  # 新增
+            'expected_participants': self.expected_participants,  # 新增
+            'location': self.location,  # 新增
             'participant_count': self.members.count(),  # 实时计算参与人数
             'created_by': self.created_by,
             'creator_name': self.creator.username if self.creator else None,
@@ -133,7 +142,10 @@ class Event(db.Model):
             'start_time': self.start_time.strftime('%H:%M') if self.start_time else None,
             'priority': self.priority,
             'status': self.status,
-            'background_image': self.background_image
+            'background_image': self.background_image,
+            'organizer_department': self.organizer_department,
+            'location': self.location,
+            'expected_participants': self.expected_participants
         }
     
     def __repr__(self):

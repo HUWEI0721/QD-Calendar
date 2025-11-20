@@ -11,14 +11,26 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    host: '127.0.0.1',
     proxy: {
       '/api': {
-        target: 'http://localhost:5002',
-        changeOrigin: true
+        target: 'http://127.0.0.1:5002',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('proxy error', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('Proxying:', req.method, req.url, '→', options.target + req.url);
+          });
+        }
       },
       '/uploads': {
-        target: 'http://localhost:5002',
-        changeOrigin: true
+        target: 'http://127.0.0.1:5002',
+        changeOrigin: true,
+        secure: false
       }
     }
   }

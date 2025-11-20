@@ -52,7 +52,7 @@ def create_app(config_name='default'):
     )
     from resources.events import (
         EventListResource, EventDetailResource,
-        EventCalendarResource, ImageUploadResource
+        EventCalendarResource, ImageUploadResource, UpcomingEventsResource
     )
     from resources.members import (
         MemberListResource, MemberDetailResource, MemberStatsResource
@@ -73,6 +73,7 @@ def create_app(config_name='default'):
     api.add_resource(EventDetailResource, '/events/<int:event_id>')
     api.add_resource(EventCalendarResource, '/calendar')
     api.add_resource(ImageUploadResource, '/upload/image')
+    api.add_resource(UpcomingEventsResource, '/events/upcoming')
     
     # 人员管理路由
     api.add_resource(MemberListResource, '/members')

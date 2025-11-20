@@ -3,7 +3,7 @@
     <header class="header">
       <div class="header-content">
         <h1 class="logo">
-          <el-icon><Calendar /></el-icon>
+          <img src="/qd-logo.png" alt="QD Logo" class="logo-image" />
           QD日历
         </h1>
         <nav class="nav">
@@ -65,6 +65,11 @@
         </div>
       </div>
       
+      <!-- 近期活动轮播 -->
+      <div class="carousel-section">
+        <EventCarousel />
+      </div>
+      
       <div class="features-section">
         <h3 class="section-title">核心功能</h3>
         <div class="features-grid">
@@ -92,6 +97,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { Calendar, Clock, Bell, User, Lock, Picture, ArrowDown } from '@element-plus/icons-vue'
+import EventCarousel from '@/components/EventCarousel.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -184,6 +190,12 @@ const handleLogout = () => {
   -webkit-text-fill-color: transparent;
 }
 
+.logo-image {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
 .nav {
   display: flex;
   gap: 10px;
@@ -266,6 +278,12 @@ const handleLogout = () => {
   bottom: 50px;
   left: 100px;
   animation-delay: 2s;
+}
+
+.carousel-section {
+  max-width: 1200px;
+  margin: 60px auto;
+  padding: 0 20px;
 }
 
 .features-section {

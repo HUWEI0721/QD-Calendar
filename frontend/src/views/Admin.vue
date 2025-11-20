@@ -3,7 +3,7 @@
     <header class="admin-header">
       <div class="header-content">
         <h1 class="logo" @click="goToHome">
-          <el-icon><Setting /></el-icon>
+          <img src="/qd-logo.png" alt="QD Logo" class="logo-image" />
           管理面板
         </h1>
         <div class="header-actions">
@@ -90,6 +90,27 @@
               <el-tag :type="getStatusType(row.status)" size="small">
                 {{ getStatusLabel(row.status) }}
               </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="location" label="地点" width="120">
+            <template #default="{ row }">
+              <span v-if="row.location">{{ row.location }}</span>
+              <span v-else class="text-secondary">未设置</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="organizer_department" label="部门" width="120">
+            <template #default="{ row }">
+              <span v-if="row.organizer_department">{{ row.organizer_department }}</span>
+              <span v-else class="text-secondary">未设置</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="预计人数" width="100">
+            <template #default="{ row }">
+              <span v-if="row.expected_participants">{{ row.expected_participants }}人</span>
+              <span v-else class="text-secondary">-</span>
             </template>
           </el-table-column>
           
@@ -185,34 +206,74 @@
           </el-select>
         </el-form-item>
         
-        <el-form-item label="背景图片">
+        <el-form-item label="活动海报" prop="background_image" required>
           <div class="image-upload">
-            <el-upload
-              :action="uploadAction"
-              :headers="uploadHeaders"
-              :show-file-list="false"
-              :on-success="handleUploadSuccess"
-              :before-upload="beforeUpload"
-              accept="image/*"
-            >
-              <el-button size="small" type="primary">
-                <el-icon><Upload /></el-icon>
-                上传图片
-              </el-button>
-            </el-upload>
-            
-            <div v-if="eventForm.background_image" class="preview-image">
-              <img :src="eventForm.background_image" alt="背景图" />
-              <el-button
-                size="small"
-                type="danger"
-                circle
-                @click="eventForm.background_image = ''"
+            <el-space direction="vertical" style="width: 100%">
+              <!-- 方式1: 上传本地图片 -->
+              <el-upload
+                :action="uploadAction"
+                :headers="uploadHeaders"
+                :show-file-list="false"
+                :on-success="handleUploadSuccess"
+                :before-upload="beforeUpload"
+                accept="image/*"
               >
-                <el-icon><Close /></el-icon>
-              </el-button>
-            </div>
+                <el-button size="small" type="primary">
+                  <el-icon><Upload /></el-icon>
+                  上传本地图片
+                </el-button>
+              </el-upload>
+              
+              <!-- 方式2: 输入在线图片URL -->
+              <el-input
+                v-model="imageUrlInput"
+                placeholder="或输入在线图片URL（支持http://或https://）"
+                clearable
+                @blur="handleImageUrlInput"
+              >
+                <template #prepend>
+                  <el-icon><Link /></el-icon>
+                </template>
+                <template #append>
+                  <el-button @click="handleImageUrlInput">确定</el-button>
+                </template>
+              </el-input>
+              
+              <!-- 图片预览 -->
+              <div v-if="eventForm.background_image" class="preview-image">
+                <img :src="getFullImageUrl(eventForm.background_image)" alt="背景图" @error="handleImageError" />
+                <el-button
+                  size="small"
+                  type="danger"
+                  circle
+                  @click="clearImage"
+                >
+                  <el-icon><Close /></el-icon>
+                </el-button>
+                <div class="image-url-display">
+                  <el-text size="small" type="info">{{ eventForm.background_image }}</el-text>
+                </div>
+              </div>
+            </el-space>
           </div>
+        </el-form-item>
+        
+        <el-form-item label="举办部门" prop="organizer_department" required>
+          <el-input v-model="eventForm.organizer_department" placeholder="例如：技术部、市场部（必填）" />
+        </el-form-item>
+        
+        <el-form-item label="活动地点" prop="location" required>
+          <el-input v-model="eventForm.location" placeholder="例如：会议室A、体育馆（必填）" />
+        </el-form-item>
+        
+        <el-form-item label="预计人数">
+          <el-input-number
+            v-model="eventForm.expected_participants"
+            :min="0"
+            :step="1"
+            placeholder="预计参与人数"
+            style="width: 100%"
+          />
         </el-form-item>
         
         <el-form-item label="描述">
@@ -244,7 +305,7 @@ import { useEventsStore } from '@/stores/events'
 import { uploadImage } from '@/api/events'
 import {
   Setting, Calendar, ArrowDown, Plus, Search,
-  Picture, Upload, Close
+  Picture, Upload, Close, Link
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -259,6 +320,7 @@ const isEditMode = ref(false)
 const submitLoading = ref(false)
 const eventFormRef = ref(null)
 const currentEventId = ref(null)
+const imageUrlInput = ref('')  // 在线图片URL输入框
 
 const eventForm = reactive({
   title: '',
@@ -268,7 +330,10 @@ const eventForm = reactive({
   priority: 'medium',
   status: 'pending',
   background_image: '',
-  description: ''
+  description: '',
+  organizer_department: '',  // 新增
+  location: '',  // 新增
+  expected_participants: null  // 新增
 })
 
 const eventRules = {
@@ -283,6 +348,15 @@ const eventRules = {
   ],
   status: [
     { required: true, message: '请选择状态', trigger: 'change' }
+  ],
+  background_image: [
+    { required: true, message: '请上传活动海报（背景图片）', trigger: 'change' }
+  ],
+  organizer_department: [
+    { required: true, message: '请输入举办部门', trigger: 'blur' }
+  ],
+  location: [
+    { required: true, message: '请输入活动地点', trigger: 'blur' }
   ]
 }
 
@@ -338,7 +412,10 @@ function handleEdit(row) {
     priority: row.priority,
     status: row.status,
     background_image: row.background_image || '',
-    description: row.description || ''
+    description: row.description || '',
+    organizer_department: row.organizer_department || '',  // 新增
+    location: row.location || '',  // 新增
+    expected_participants: row.expected_participants || null  // 新增
   })
   
   eventDialogVisible.value = true
@@ -411,8 +488,13 @@ function resetForm() {
     priority: 'medium',
     status: 'pending',
     background_image: '',
-    description: ''
+    description: '',
+    organizer_department: '',  // 新增
+    location: '',  // 新增
+    expected_participants: null  // 新增
   })
+  
+  imageUrlInput.value = ''  // 清空URL输入框
   
   if (eventFormRef.value) {
     eventFormRef.value.clearValidate()
@@ -439,10 +521,68 @@ function beforeUpload(file) {
 function handleUploadSuccess(response) {
   if (response.url) {
     eventForm.background_image = response.url
+    imageUrlInput.value = ''  // 清空URL输入框
     ElMessage.success('图片上传成功')
   } else {
     ElMessage.error('图片上传失败')
   }
+}
+
+// 处理在线图片URL输入
+function handleImageUrlInput() {
+  const url = imageUrlInput.value.trim()
+  
+  if (!url) {
+    return
+  }
+  
+  // 验证URL格式
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    ElMessage.error('请输入有效的图片URL（需以http://或https://开头）')
+    return
+  }
+  
+  // 验证是否是图片URL（简单验证）
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+  const urlLower = url.toLowerCase()
+  const hasImageExtension = imageExtensions.some(ext => urlLower.includes(ext))
+  
+  if (!hasImageExtension) {
+    // 如果URL不包含图片扩展名，给出警告但仍允许使用
+    ElMessage.warning('URL可能不是图片地址，请确认')
+  }
+  
+  eventForm.background_image = url
+  ElMessage.success('在线图片URL已设置')
+}
+
+// 获取完整的图片URL（用于预览）
+function getFullImageUrl(url) {
+  if (!url) return ''
+  
+  // 如果是在线URL，直接返回
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  
+  // 如果是本地上传的相对路径，拼接后端地址
+  if (url.startsWith('/')) {
+    return `http://127.0.0.1:5002${url}`
+  }
+  
+  return url
+}
+
+// 清除图片
+function clearImage() {
+  eventForm.background_image = ''
+  imageUrlInput.value = ''
+}
+
+// 图片加载失败处理
+function handleImageError(event) {
+  ElMessage.error('图片加载失败，请检查URL是否正确')
+  event.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="100"%3E%3Crect fill="%23f0f0f0" width="200" height="100"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23999"%3E图片加载失败%3C/text%3E%3C/svg%3E'
 }
 
 function getPriorityType(priority) {
@@ -543,6 +683,12 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.logo-image {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
 .header-actions {
   display: flex;
   gap: 10px;
@@ -597,10 +743,12 @@ onMounted(() => {
 
 .preview-image {
   position: relative;
-  width: 200px;
-  height: 120px;
+  width: 100%;
+  max-width: 400px;
+  height: 200px;
   border-radius: 8px;
   overflow: hidden;
+  border: 2px solid var(--border-color);
 }
 
 .preview-image img {
@@ -613,6 +761,24 @@ onMounted(() => {
   position: absolute;
   top: 5px;
   right: 5px;
+}
+
+.image-url-display {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-url-display .el-text {
+  color: white !important;
 }
 
 @media (max-width: 768px) {

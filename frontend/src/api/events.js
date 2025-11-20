@@ -41,3 +41,8 @@ export const uploadImage = (file) => {
   })
 }
 
+// 获取近期活动（首页轮播用）
+export const getUpcomingEvents = () => {
+  return axios.get('/events/upcoming')
+}
+
